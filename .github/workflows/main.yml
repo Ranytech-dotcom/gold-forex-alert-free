@@ -62,6 +62,31 @@ jobs:
               raise SystemExit("Telegram connection test failed.")
           PY
 
+      - name: Validate Gmail secret format
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+        run: |
+          python - <<'PY'
+          import os
+
+          user = os.getenv("GMAIL_USER", "").strip()
+          password = "".join(os.getenv("GMAIL_APP_PASSWORD", "").split())
+          print(
+              "Gmail secret format: "
+              f"user_set={bool(user)}, has_at={'@' in user}, "
+              f"password_characters={len(password)} (expected 16)"
+          )
+          if not user or "@" not in user:
+              raise SystemExit("GMAIL_USER is missing or is not an email address.")
+          if len(password) != 16:
+              raise SystemExit(
+                  "GMAIL_APP_PASSWORD must contain exactly 16 characters "
+                  "after spaces are removed."
+              )
+          PY
+
       - name: Send Gmail connection test
         if: github.event_name == 'workflow_dispatch'
         env:
