@@ -56,7 +56,7 @@ jobs:
 
           from gold_ai_signal_alert import telegram_send
 
-          token = os.getenv("TELEGRAM_BOT_TOKEN", "")
+          token = "".join(os.getenv("TELEGRAM_BOT_TOKEN", "").split())
           if not token:
               raise SystemExit("TELEGRAM_BOT_TOKEN is missing.")
           with urllib.request.urlopen(
