@@ -264,8 +264,8 @@ def download_market(asset: dict) -> pd.DataFrame:
 
 
 def telegram_send(message: str) -> bool:
-    token = os.getenv("TELEGRAM_BOT_TOKEN")
-    chat_id = os.getenv("TELEGRAM_CHAT_ID")
+    token = "".join(os.getenv("TELEGRAM_BOT_TOKEN", "").split())
+    chat_id = os.getenv("TELEGRAM_CHAT_ID", "").strip()
     if not token or not chat_id:
         print("Telegram not configured. Signal calculated, but no phone alert sent.")
         return False
