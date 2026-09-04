@@ -50,7 +50,21 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
           python - <<'PY'
+          import json
+          import os
+          import urllib.request
+
           from gold_ai_signal_alert import telegram_send
+
+          token = os.getenv("TELEGRAM_BOT_TOKEN", "")
+          if not token:
+              raise SystemExit("TELEGRAM_BOT_TOKEN is missing.")
+          with urllib.request.urlopen(
+              f"https://api.telegram.org/bot{token}/getMe", timeout=20
+          ) as response:
+              bot_info = json.load(response)
+          username = bot_info.get("result", {}).get("username", "unknown")
+          print(f"Telegram bot configured in GitHub: @{username}")
 
           message = (
               "MULTI-MARKET SIGNAL ALERT V4 CONNECTED. Deriv feeds verified "
