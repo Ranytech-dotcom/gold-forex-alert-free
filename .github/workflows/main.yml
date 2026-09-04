@@ -48,10 +48,18 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
-          curl -sS -X POST \
-            "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
-            -d "chat_id=${TELEGRAM_CHAT_ID}" \
-            --data-urlencode "text=MULTI-MARKET SIGNAL ALERT V4 CONNECTED. Deriv feeds verified for XAUUSD, EUR/USD, GBP/USD and USD/JPY. Checking every 15 minutes during the WAT session. This is a connection test, not a live trade."
+          python - <<'PY'
+          from gold_ai_signal_alert import telegram_send
+
+          message = (
+              "MULTI-MARKET SIGNAL ALERT V4 CONNECTED. Deriv feeds verified "
+              "for XAUUSD, EUR/USD, GBP/USD and USD/JPY. Checking every "
+              "15 minutes during the WAT session. This is a connection test, "
+              "not a live trade."
+          )
+          if not telegram_send(message):
+              raise SystemExit("Telegram connection test failed.")
+          PY
 
       - name: Send Gmail connection test
         if: github.event_name == 'workflow_dispatch'
