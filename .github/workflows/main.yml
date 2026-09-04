@@ -69,13 +69,19 @@ jobs:
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
         run: |
           python - <<'PY'
+          import hashlib
           import os
 
           user = os.getenv("GMAIL_USER", "").strip()
           password = "".join(os.getenv("GMAIL_APP_PASSWORD", "").split())
+          user_matches = (
+              hashlib.sha256(user.lower().encode()).hexdigest()
+              == "aa5f06eee8fb3a9ef88037ce0ae1c909575505c127f4eda573c947808077bb64"
+          )
           print(
               "Gmail secret format: "
               f"user_set={bool(user)}, has_at={'@' in user}, "
+              f"matches_expected_account={user_matches}, "
               f"password_characters={len(password)} (expected 16)"
           )
           if not user or "@" not in user:
