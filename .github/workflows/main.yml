@@ -1,0 +1,80 @@
+name: Gold and Forex Signal Alert V4
+
+on:
+  schedule:
+    - cron: "2,17,32,47 6-20 * * *"
+  workflow_dispatch:
+
+jobs:
+  market-signal:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download project
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install requirements
+        run: pip install pandas numpy scikit-learn websocket-client
+
+      - name: Verify all Deriv market feeds
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          python - <<'PY'
+          from gold_ai_signal_alert import download_deriv_market
+
+          markets = {
+              "XAUUSD": "frxXAUUSD",
+              "EURUSD": "frxEURUSD",
+              "GBPUSD": "frxGBPUSD",
+              "USDJPY": "frxUSDJPY",
+          }
+          for name, symbol in markets.items():
+              candles = download_deriv_market(symbol)
+              latest = candles.iloc[-1]
+              print(
+                  f"Deriv {name} feed OK: {len(candles)} completed candles; "
+                  f"last close={latest['close']}; time={latest['timestamp']}"
+              )
+          PY
+
+      - name: Send Telegram connection test
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          curl -sS -X POST \
+            "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            -d "chat_id=${TELEGRAM_CHAT_ID}" \
+            --data-urlencode "text=MULTI-MARKET SIGNAL ALERT V4 CONNECTED. Deriv feeds verified for XAUUSD, EUR/USD, GBP/USD and USD/JPY. Checking every 15 minutes during the WAT session. This is a connection test, not a live trade."
+
+      - name: Send Gmail connection test
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+        run: |
+          python - <<'PY'
+          from gold_ai_signal_alert import email_send
+
+          message = (
+              "MULTI-MARKET SIGNAL ALERT V4 CONNECTED. Deriv feeds verified "
+              "for XAUUSD, EUR/USD, GBP/USD and USD/JPY. Checking every "
+              "15 minutes during the WAT session. This is a connection test, "
+              "not a live trade."
+          )
+          if not email_send("Multi-Market Signal Alert V4 Connected", message):
+              raise SystemExit("Gmail connection test failed.")
+          PY
+      - name: Check Gold and forex signals
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+        run: python gold_ai_signal_alert.py
