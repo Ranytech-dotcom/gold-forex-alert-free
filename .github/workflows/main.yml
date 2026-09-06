@@ -7,16 +7,19 @@ on:
     - cron: "2,17,32,47 7-20 * * *"
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   market-signal:
     runs-on: ubuntu-latest
 
     steps:
       - name: Download project
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.11"
 
@@ -152,10 +155,28 @@ jobs:
           if not email_send("Multi-Market Signal Alert V4 Connected", message):
               raise SystemExit("Gmail connection test failed.")
           PY
+
       - name: Check Gold and forex signals
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           GMAIL_USER: ${{ secrets.GMAIL_USER }}
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
-        run: python gold_ai_signal_alert.py
+        run: python gold_ai_signal_alert.py | tee scan_output.txt
+
+      - name: Build live dashboard signal overlay
+        run: |
+          python update_dashboard_signals.py
+          rm -f scan_output.txt
+
+      - name: Persist dashboard signal state
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add latest_signals.json
+          if git diff --cached --quiet; then
+            echo "No dashboard signal change to publish."
+          else
+            git commit -m "Update live V4 dashboard signal"
+            git push
+          fi
