@@ -1,0 +1,48 @@
+name: Publish Gold Forex Dashboard
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "index.html"
+      - "styles.css"
+      - "app.js"
+      - "latest_signals.json"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "gold-forex-pages"
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout dashboard
+        uses: actions/checkout@v6
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Prepare static dashboard
+        run: |
+          mkdir -p _site
+          cp index.html styles.css app.js latest_signals.json _site/
+
+      - name: Upload dashboard
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: "_site"
+
+      - name: Deploy dashboard
+        id: deployment
+        uses: actions/deploy-pages@v4
