@@ -14,7 +14,7 @@
       <div>
         <p class="eyebrow">RNL • Ransome NevaLack</p>
         <h1>Gold & Forex</h1>
-        <p class="subtitle">Live Deriv market chart</p>
+        <p class="subtitle">Live Deriv market chart + V4 signal levels</p>
       </div>
       <div class="status-pill" id="connectionStatus" data-state="connecting">
         <span class="status-dot"></span>
@@ -62,18 +62,18 @@
       </div>
     </section>
 
-    <section class="signal-card">
+    <section class="signal-card" id="signalCard" data-signal="WAIT">
       <div>
-        <p class="eyebrow">Signal overlay ready</p>
-        <h2>Entry, SL & TP levels</h2>
-        <p>The chart is prepared for your V4 alert levels so Entry, Stop Loss, TP1, TP2 and TP3 can be drawn directly on the price chart in the next integration stage.</p>
+        <p class="eyebrow" id="signalEyebrow">V4 signal overlay</p>
+        <h2 id="signalTitle">No active signal</h2>
+        <p id="signalSummary">Waiting for a qualified BUY or SELL setup for the selected market.</p>
       </div>
-      <div class="level-key" aria-label="Signal level legend">
-        <span>Entry</span><span>SL</span><span>TP1</span><span>TP2</span><span>TP3</span>
+      <div class="level-key" id="signalLevels" aria-label="Current signal levels">
+        <span>Entry —</span><span>SL —</span><span>TP1 —</span><span>TP2 —</span><span>TP3 —</span>
       </div>
     </section>
 
-    <p class="disclaimer">Educational/demo market view only. It does not place trades. Always verify the live Deriv MT5 quote and spread before entering a trade.</p>
+    <p class="disclaimer">Educational/demo market view only. It does not place trades. Signal levels expire automatically. Always verify the live Deriv MT5 quote and spread before entering a trade.</p>
   </main>
 
   <script src="https://unpkg.com/lightweight-charts@4.2.3/dist/lightweight-charts.standalone.production.js"></script>
