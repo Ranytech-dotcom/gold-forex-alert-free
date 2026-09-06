@@ -1,0 +1,66 @@
+:root {
+  color-scheme: dark;
+  --bg: #050b14;
+  --panel: rgba(10, 22, 38, 0.92);
+  --panel-2: rgba(14, 30, 50, 0.86);
+  --line: rgba(148, 163, 184, 0.14);
+  --text: #f8fafc;
+  --muted: #94a3b8;
+  --accent: #f4c152;
+  --good: #28d17c;
+  --bad: #ff5d73;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; min-height: 100%; background: radial-gradient(circle at top, #10253f 0%, var(--bg) 42%, #03070d 100%); color: var(--text); font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+body { min-height: 100vh; }
+button, select { font: inherit; }
+
+.app-shell { width: min(1180px, 100%); margin: 0 auto; padding: 22px 16px calc(28px + env(safe-area-inset-bottom)); }
+.topbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+.eyebrow { margin: 0 0 6px; color: var(--accent); font-size: .72rem; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
+h1, h2 { margin: 0; }
+h1 { font-size: clamp(1.8rem, 6vw, 3rem); line-height: 1; }
+h2 { font-size: 1.2rem; }
+.subtitle { margin: 7px 0 0; color: var(--muted); }
+
+.status-pill { display: inline-flex; align-items: center; gap: 8px; padding: 9px 12px; border: 1px solid var(--line); border-radius: 999px; background: rgba(255,255,255,.04); color: var(--muted); font-size: .8rem; font-weight: 700; }
+.status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 16px currentColor; }
+.status-pill[data-state="live"] { color: var(--good); }
+.status-pill[data-state="error"] { color: var(--bad); }
+
+.market-card, .signal-card { border: 1px solid var(--line); background: linear-gradient(180deg, var(--panel), rgba(5, 11, 20, .95)); border-radius: 22px; box-shadow: 0 24px 70px rgba(0,0,0,.28); overflow: hidden; }
+.market-toolbar { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 20px; align-items: end; padding: 18px 18px 14px; border-bottom: 1px solid var(--line); }
+.symbol-block label, .price-label { display: block; margin-bottom: 7px; color: var(--muted); font-size: .72rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+select { width: min(300px, 100%); border: 1px solid var(--line); border-radius: 12px; background: #081524; color: var(--text); padding: 12px 14px; outline: none; }
+.price-block { text-align: right; min-width: 150px; }
+#livePrice { display: block; font-size: clamp(1.4rem, 4vw, 2rem); line-height: 1.05; font-variant-numeric: tabular-nums; }
+.price-meta { display: block; margin-top: 5px; color: var(--muted); font-size: .72rem; }
+
+.timeframes { display: flex; gap: 8px; overflow-x: auto; padding: 12px 14px; border-bottom: 1px solid var(--line); scrollbar-width: none; }
+.timeframes::-webkit-scrollbar { display: none; }
+.timeframes button { flex: 0 0 auto; border: 1px solid transparent; border-radius: 10px; padding: 8px 12px; background: transparent; color: var(--muted); font-weight: 800; cursor: pointer; }
+.timeframes button.active { color: #07111f; background: var(--accent); }
+
+.chart-wrap { position: relative; height: min(62vh, 560px); min-height: 360px; background: #06101d; }
+#chart { width: 100%; height: 100%; }
+.chart-loader { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(5, 11, 20, .58); backdrop-filter: blur(3px); color: var(--muted); font-weight: 700; transition: opacity .2s ease; pointer-events: none; }
+.chart-loader.hidden { opacity: 0; }
+.chart-footer { display: flex; flex-wrap: wrap; gap: 8px 18px; justify-content: space-between; padding: 11px 16px; border-top: 1px solid var(--line); color: var(--muted); font-size: .72rem; }
+
+.signal-card { margin-top: 16px; padding: 18px; display: grid; grid-template-columns: 1fr auto; gap: 20px; align-items: center; }
+.signal-card p:not(.eyebrow) { margin: 8px 0 0; color: var(--muted); line-height: 1.55; }
+.level-key { display: flex; gap: 7px; flex-wrap: wrap; justify-content: flex-end; }
+.level-key span { border: 1px solid var(--line); border-radius: 999px; padding: 7px 10px; background: rgba(255,255,255,.035); color: #dbeafe; font-size: .72rem; font-weight: 800; }
+.disclaimer { margin: 16px 4px 0; color: #718096; font-size: .72rem; line-height: 1.55; text-align: center; }
+
+@media (max-width: 700px) {
+  .app-shell { padding: 16px 10px 24px; }
+  .topbar { align-items: flex-start; }
+  .status-pill { padding: 8px 9px; font-size: .7rem; }
+  .market-toolbar { grid-template-columns: 1fr; gap: 14px; }
+  .price-block { text-align: left; }
+  .signal-card { grid-template-columns: 1fr; }
+  .level-key { justify-content: flex-start; }
+  .chart-wrap { min-height: 420px; height: 58vh; }
+}
