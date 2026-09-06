@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#07111f" />
+  <title>RNL Gold & Forex — Live Market Chart</title>
+  <link rel="preconnect" href="https://unpkg.com" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="app-shell">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">RNL • Ransome NevaLack</p>
+        <h1>Gold & Forex</h1>
+        <p class="subtitle">Live Deriv market chart</p>
+      </div>
+      <div class="status-pill" id="connectionStatus" data-state="connecting">
+        <span class="status-dot"></span>
+        <span>Connecting</span>
+      </div>
+    </header>
+
+    <section class="market-card">
+      <div class="market-toolbar">
+        <div class="symbol-block">
+          <label for="symbolSelect">Market</label>
+          <select id="symbolSelect" aria-label="Select market">
+            <option value="XAUUSD">XAU/USD · Gold</option>
+            <option value="EURUSD">EUR/USD</option>
+            <option value="GBPUSD">GBP/USD</option>
+            <option value="USDJPY">USD/JPY</option>
+          </select>
+        </div>
+
+        <div class="price-block">
+          <span class="price-label">Live price</span>
+          <strong id="livePrice">—</strong>
+          <span class="price-meta" id="priceMeta">Waiting for market data</span>
+        </div>
+      </div>
+
+      <div class="timeframes" role="group" aria-label="Chart timeframe">
+        <button data-granularity="60">1m</button>
+        <button data-granularity="300">5m</button>
+        <button class="active" data-granularity="900">15m</button>
+        <button data-granularity="1800">30m</button>
+        <button data-granularity="3600">1H</button>
+        <button data-granularity="14400">4H</button>
+      </div>
+
+      <div class="chart-wrap">
+        <div id="chart"></div>
+        <div class="chart-loader" id="chartLoader">Loading candles…</div>
+      </div>
+
+      <div class="chart-footer">
+        <span>Source: Deriv public market data</span>
+        <span id="lastUpdated">Last update: —</span>
+      </div>
+    </section>
+
+    <section class="signal-card">
+      <div>
+        <p class="eyebrow">Signal overlay ready</p>
+        <h2>Entry, SL & TP levels</h2>
+        <p>The chart is prepared for your V4 alert levels so Entry, Stop Loss, TP1, TP2 and TP3 can be drawn directly on the price chart in the next integration stage.</p>
+      </div>
+      <div class="level-key" aria-label="Signal level legend">
+        <span>Entry</span><span>SL</span><span>TP1</span><span>TP2</span><span>TP3</span>
+      </div>
+    </section>
+
+    <p class="disclaimer">Educational/demo market view only. It does not place trades. Always verify the live Deriv MT5 quote and spread before entering a trade.</p>
+  </main>
+
+  <script src="https://unpkg.com/lightweight-charts@4.2.3/dist/lightweight-charts.standalone.production.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
