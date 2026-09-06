@@ -1,0 +1,251 @@
+(() => {
+  const WS_URL = "wss://api.derivws.com/trading/v1/options/ws/public";
+  const markets = {
+    XAUUSD: { symbol: "frxXAUUSD", label: "XAU/USD · Gold", decimals: 2 },
+    EURUSD: { symbol: "frxEURUSD", label: "EUR/USD", decimals: 5 },
+    GBPUSD: { symbol: "frxGBPUSD", label: "GBP/USD", decimals: 5 },
+    USDJPY: { symbol: "frxUSDJPY", label: "USD/JPY", decimals: 3 }
+  };
+
+  const chartElement = document.getElementById("chart");
+  const symbolSelect = document.getElementById("symbolSelect");
+  const livePrice = document.getElementById("livePrice");
+  const priceMeta = document.getElementById("priceMeta");
+  const lastUpdated = document.getElementById("lastUpdated");
+  const loader = document.getElementById("chartLoader");
+  const connectionStatus = document.getElementById("connectionStatus");
+  const timeframeButtons = Array.from(document.querySelectorAll("[data-granularity]"));
+
+  let activeMarketKey = "XAUUSD";
+  let granularity = 900;
+  let socket = null;
+  let candles = [];
+  let currentCandle = null;
+  let reconnectTimer = null;
+  let intentionalClose = false;
+
+  const chart = LightweightCharts.createChart(chartElement, {
+    width: chartElement.clientWidth,
+    height: chartElement.clientHeight,
+    layout: {
+      background: { color: "#06101d" },
+      textColor: "#94a3b8"
+    },
+    grid: {
+      vertLines: { color: "rgba(148, 163, 184, 0.06)" },
+      horzLines: { color: "rgba(148, 163, 184, 0.06)" }
+    },
+    rightPriceScale: {
+      borderColor: "rgba(148, 163, 184, 0.12)",
+      scaleMargins: { top: 0.12, bottom: 0.12 }
+    },
+    timeScale: {
+      borderColor: "rgba(148, 163, 184, 0.12)",
+      timeVisible: true,
+      secondsVisible: false,
+      rightOffset: 6,
+      barSpacing: 8
+    },
+    crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+    localization: {
+      timeFormatter: (timestamp) => {
+        const date = new Date(Number(timestamp) * 1000);
+        return new Intl.DateTimeFormat("en-GB", {
+          timeZone: "Africa/Lagos",
+          day: "2-digit",
+          month: "short",
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: true
+        }).format(date);
+      }
+    }
+  });
+
+  const candleSeries = chart.addCandlestickSeries({
+    upColor: "#20c67a",
+    downColor: "#f05d6f",
+    wickUpColor: "#20c67a",
+    wickDownColor: "#f05d6f",
+    borderVisible: false,
+    priceLineVisible: true,
+    lastValueVisible: true
+  });
+
+  const resizeObserver = new ResizeObserver(() => {
+    chart.applyOptions({ width: chartElement.clientWidth, height: chartElement.clientHeight });
+  });
+  resizeObserver.observe(chartElement);
+
+  function setStatus(state, text) {
+    connectionStatus.dataset.state = state;
+    connectionStatus.querySelector("span:last-child").textContent = text;
+  }
+
+  function setLoading(isLoading, text = "Loading candles…") {
+    loader.textContent = text;
+    loader.classList.toggle("hidden", !isLoading);
+  }
+
+  function formatPrice(value) {
+    const market = markets[activeMarketKey];
+    return Number(value).toFixed(market.decimals);
+  }
+
+  function updatePrice(value, epoch) {
+    livePrice.textContent = formatPrice(value);
+    const date = new Date(Number(epoch) * 1000);
+    const time = new Intl.DateTimeFormat("en-NG", {
+      timeZone: "Africa/Lagos",
+      hour: "numeric",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: true
+    }).format(date);
+    priceMeta.textContent = `${markets[activeMarketKey].label} · WAT`;
+    lastUpdated.textContent = `Last update: ${time}`;
+  }
+
+  function bucketStart(epoch) {
+    return Math.floor(Number(epoch) / granularity) * granularity;
+  }
+
+  function normalizeCandle(item) {
+    return {
+      time: Number(item.epoch),
+      open: Number(item.open),
+      high: Number(item.high),
+      low: Number(item.low),
+      close: Number(item.close)
+    };
+  }
+
+  function setSeriesPrecision() {
+    const decimals = markets[activeMarketKey].decimals;
+    candleSeries.applyOptions({
+      priceFormat: {
+        type: "price",
+        precision: decimals,
+        minMove: Math.pow(10, -decimals)
+      }
+    });
+  }
+
+  function handleHistory(message) {
+    const raw = Array.isArray(message.candles) ? message.candles : [];
+    candles = raw.map(normalizeCandle).sort((a, b) => a.time - b.time);
+    candleSeries.setData(candles);
+    currentCandle = candles.length ? { ...candles[candles.length - 1] } : null;
+    if (currentCandle) updatePrice(currentCandle.close, currentCandle.time);
+    chart.timeScale().fitContent();
+    setLoading(false);
+  }
+
+  function handleTick(tick) {
+    const epoch = Number(tick.epoch);
+    const quote = Number(tick.quote);
+    if (!Number.isFinite(epoch) || !Number.isFinite(quote)) return;
+
+    const start = bucketStart(epoch);
+    if (!currentCandle || start > currentCandle.time) {
+      currentCandle = { time: start, open: quote, high: quote, low: quote, close: quote };
+    } else if (start === currentCandle.time) {
+      currentCandle.high = Math.max(currentCandle.high, quote);
+      currentCandle.low = Math.min(currentCandle.low, quote);
+      currentCandle.close = quote;
+    } else {
+      return;
+    }
+
+    candleSeries.update(currentCandle);
+    updatePrice(quote, epoch);
+  }
+
+  function requestData() {
+    const market = markets[activeMarketKey];
+    socket.send(JSON.stringify({
+      ticks_history: market.symbol,
+      adjust_start_time: 1,
+      count: 500,
+      end: "latest",
+      start: 1,
+      style: "candles",
+      granularity
+    }));
+    socket.send(JSON.stringify({ ticks: market.symbol, subscribe: 1 }));
+  }
+
+  function connect() {
+    clearTimeout(reconnectTimer);
+    intentionalClose = false;
+    setStatus("connecting", "Connecting");
+    setLoading(true);
+    socket = new WebSocket(WS_URL);
+
+    socket.addEventListener("open", () => {
+      setStatus("live", "Live");
+      requestData();
+    });
+
+    socket.addEventListener("message", (event) => {
+      let message;
+      try { message = JSON.parse(event.data); } catch { return; }
+
+      if (message.error) {
+        console.error("Deriv error:", message.error);
+        setStatus("error", "Data error");
+        setLoading(true, message.error.message || "Market data unavailable");
+        return;
+      }
+
+      if (message.msg_type === "candles" || Array.isArray(message.candles)) handleHistory(message);
+      if (message.msg_type === "tick" && message.tick) handleTick(message.tick);
+    });
+
+    socket.addEventListener("error", () => {
+      setStatus("error", "Connection error");
+    });
+
+    socket.addEventListener("close", () => {
+      if (intentionalClose) return;
+      setStatus("connecting", "Reconnecting");
+      reconnectTimer = setTimeout(connect, 2500);
+    });
+  }
+
+  function reloadMarket() {
+    intentionalClose = true;
+    clearTimeout(reconnectTimer);
+    if (socket && socket.readyState <= WebSocket.OPEN) socket.close();
+    candles = [];
+    currentCandle = null;
+    candleSeries.setData([]);
+    livePrice.textContent = "—";
+    priceMeta.textContent = "Waiting for market data";
+    setSeriesPrecision();
+    connect();
+  }
+
+  symbolSelect.addEventListener("change", (event) => {
+    activeMarketKey = event.target.value;
+    reloadMarket();
+  });
+
+  timeframeButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      timeframeButtons.forEach((item) => item.classList.remove("active"));
+      button.classList.add("active");
+      granularity = Number(button.dataset.granularity);
+      reloadMarket();
+    });
+  });
+
+  window.addEventListener("beforeunload", () => {
+    intentionalClose = true;
+    clearTimeout(reconnectTimer);
+    if (socket) socket.close();
+  });
+
+  setSeriesPrecision();
+  connect();
+})();
