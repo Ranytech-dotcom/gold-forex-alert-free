@@ -161,9 +161,9 @@
     updatePrice(quote, epoch);
   }
 
-  function requestData() {
+  function requestData(ws) {
     const market = markets[activeMarketKey];
-    socket.send(JSON.stringify({
+    ws.send(JSON.stringify({
       ticks_history: market.symbol,
       adjust_start_time: 1,
       count: 500,
@@ -172,7 +172,7 @@
       style: "candles",
       granularity
     }));
-    socket.send(JSON.stringify({ ticks: market.symbol, subscribe: 1 }));
+    ws.send(JSON.stringify({ ticks: market.symbol, subscribe: 1 }));
   }
 
   function connect() {
@@ -180,14 +180,18 @@
     intentionalClose = false;
     setStatus("connecting", "Connecting");
     setLoading(true);
-    socket = new WebSocket(WS_URL);
 
-    socket.addEventListener("open", () => {
+    const ws = new WebSocket(WS_URL);
+    socket = ws;
+
+    ws.addEventListener("open", () => {
+      if (ws !== socket) return;
       setStatus("live", "Live");
-      requestData();
+      requestData(ws);
     });
 
-    socket.addEventListener("message", (event) => {
+    ws.addEventListener("message", (event) => {
+      if (ws !== socket) return;
       let message;
       try { message = JSON.parse(event.data); } catch { return; }
 
@@ -202,12 +206,13 @@
       if (message.msg_type === "tick" && message.tick) handleTick(message.tick);
     });
 
-    socket.addEventListener("error", () => {
+    ws.addEventListener("error", () => {
+      if (ws !== socket) return;
       setStatus("error", "Connection error");
     });
 
-    socket.addEventListener("close", () => {
-      if (intentionalClose) return;
+    ws.addEventListener("close", () => {
+      if (ws !== socket || intentionalClose) return;
       setStatus("connecting", "Reconnecting");
       reconnectTimer = setTimeout(connect, 2500);
     });
@@ -216,7 +221,11 @@
   function reloadMarket() {
     intentionalClose = true;
     clearTimeout(reconnectTimer);
-    if (socket && socket.readyState <= WebSocket.OPEN) socket.close();
+
+    const oldSocket = socket;
+    socket = null;
+    if (oldSocket && oldSocket.readyState <= WebSocket.OPEN) oldSocket.close();
+
     candles = [];
     currentCandle = null;
     candleSeries.setData([]);
@@ -243,7 +252,9 @@
   window.addEventListener("beforeunload", () => {
     intentionalClose = true;
     clearTimeout(reconnectTimer);
-    if (socket) socket.close();
+    const ws = socket;
+    socket = null;
+    if (ws) ws.close();
   });
 
   setSeriesPrecision();
