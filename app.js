@@ -1,5 +1,6 @@
 (() => {
   const WS_URL = "wss://api.derivws.com/trading/v1/options/ws/public";
+  const SIGNAL_URL = "latest_signals.json";
   const markets = {
     XAUUSD: { symbol: "frxXAUUSD", label: "XAU/USD · Gold", decimals: 2 },
     EURUSD: { symbol: "frxEURUSD", label: "EUR/USD", decimals: 5 },
@@ -15,6 +16,11 @@
   const loader = document.getElementById("chartLoader");
   const connectionStatus = document.getElementById("connectionStatus");
   const timeframeButtons = Array.from(document.querySelectorAll("[data-granularity]"));
+  const signalCard = document.getElementById("signalCard");
+  const signalEyebrow = document.getElementById("signalEyebrow");
+  const signalTitle = document.getElementById("signalTitle");
+  const signalSummary = document.getElementById("signalSummary");
+  const signalLevels = document.getElementById("signalLevels");
 
   let activeMarketKey = "XAUUSD";
   let granularity = 900;
@@ -23,6 +29,8 @@
   let currentCandle = null;
   let reconnectTimer = null;
   let intentionalClose = false;
+  let signalPriceLines = [];
+  let signalPollTimer = null;
 
   const chart = LightweightCharts.createChart(chartElement, {
     width: chartElement.clientWidth,
@@ -218,6 +226,88 @@
     });
   }
 
+  function clearSignalLines() {
+    signalPriceLines.forEach((line) => {
+      try { candleSeries.removePriceLine(line); } catch (_) {}
+    });
+    signalPriceLines = [];
+  }
+
+  function setNoSignal(message = "Waiting for a qualified BUY or SELL setup for the selected market.") {
+    clearSignalLines();
+    signalCard.dataset.signal = "WAIT";
+    signalEyebrow.textContent = "V4 signal overlay";
+    signalTitle.textContent = "No active signal";
+    signalSummary.textContent = message;
+    signalLevels.innerHTML = "<span>Entry —</span><span>SL —</span><span>TP1 —</span><span>TP2 —</span><span>TP3 —</span>";
+  }
+
+  function addPriceLine(price, title, color, style = LightweightCharts.LineStyle.Dashed) {
+    if (!Number.isFinite(Number(price))) return;
+    const line = candleSeries.createPriceLine({
+      price: Number(price),
+      color,
+      lineWidth: 2,
+      lineStyle: style,
+      axisLabelVisible: true,
+      title
+    });
+    signalPriceLines.push(line);
+  }
+
+  function renderSignal(signal) {
+    clearSignalLines();
+    const direction = String(signal.direction || "").toUpperCase();
+    const expiry = signal.expires_at ? new Date(signal.expires_at) : null;
+    if (!['BUY', 'SELL'].includes(direction) || !expiry || expiry <= new Date()) {
+      setNoSignal("The previous V4 setup has expired. Waiting for the next qualified signal.");
+      return;
+    }
+
+    addPriceLine(signal.entry_low, "ENTRY LOW", "#f4c152");
+    addPriceLine(signal.entry_high, "ENTRY HIGH", "#f4c152");
+    addPriceLine(signal.stop, "SL", "#ff5d73", LightweightCharts.LineStyle.Solid);
+    addPriceLine(signal.tp1, "TP1", "#28d17c");
+    addPriceLine(signal.tp2, "TP2", "#20b8ff");
+    addPriceLine(signal.tp3, "TP3", "#9b8cff");
+
+    const expiryText = new Intl.DateTimeFormat("en-NG", {
+      timeZone: "Africa/Lagos",
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true
+    }).format(expiry);
+
+    signalCard.dataset.signal = direction;
+    signalEyebrow.textContent = `${direction} signal active · V4`;
+    signalTitle.textContent = `${markets[activeMarketKey].label} ${direction}`;
+    signalSummary.textContent = `Entry ${formatPrice(signal.entry_low)}–${formatPrice(signal.entry_high)} · expires ${expiryText} WAT. ${signal.reason || "Qualified V4 setup."}`;
+    signalLevels.innerHTML = [
+      `<span>Entry ${formatPrice(signal.entry_low)}–${formatPrice(signal.entry_high)}</span>`,
+      `<span>SL ${formatPrice(signal.stop)}</span>`,
+      `<span>TP1 ${formatPrice(signal.tp1)}</span>`,
+      `<span>TP2 ${formatPrice(signal.tp2)}</span>`,
+      `<span>TP3 ${formatPrice(signal.tp3)}</span>`
+    ].join("");
+  }
+
+  async function loadSignalOverlay() {
+    try {
+      const response = await fetch(`${SIGNAL_URL}?v=${Date.now()}`, { cache: "no-store" });
+      if (!response.ok) throw new Error(`Signal HTTP ${response.status}`);
+      const payload = await response.json();
+      const signal = payload && payload.signals ? payload.signals[activeMarketKey] : null;
+      if (!signal) {
+        setNoSignal();
+        return;
+      }
+      renderSignal(signal);
+    } catch (error) {
+      console.warn("Signal overlay unavailable:", error);
+      setNoSignal("Signal overlay is temporarily unavailable; live candles remain connected.");
+    }
+  }
+
   function reloadMarket() {
     intentionalClose = true;
     clearTimeout(reconnectTimer);
@@ -231,8 +321,10 @@
     candleSeries.setData([]);
     livePrice.textContent = "—";
     priceMeta.textContent = "Waiting for market data";
+    clearSignalLines();
     setSeriesPrecision();
     connect();
+    loadSignalOverlay();
   }
 
   symbolSelect.addEventListener("change", (event) => {
@@ -252,6 +344,7 @@
   window.addEventListener("beforeunload", () => {
     intentionalClose = true;
     clearTimeout(reconnectTimer);
+    clearInterval(signalPollTimer);
     const ws = socket;
     socket = null;
     if (ws) ws.close();
@@ -259,4 +352,6 @@
 
   setSeriesPrecision();
   connect();
+  loadSignalOverlay();
+  signalPollTimer = setInterval(loadSignalOverlay, 30000);
 })();
